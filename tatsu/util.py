@@ -12,6 +12,7 @@ import keyword
 import functools
 import warnings
 import logging
+import xml.etree.ElementTree as ET
 
 
 logger = logging.getLogger('tatsu')
@@ -269,6 +270,35 @@ def asjson(obj, seen=None):
 
 def asjsons(obj):
     return json.dumps(asjson(obj), indent=2)
+
+
+# WARNING: draft
+def asxml(obj, root=None, seen=None):
+    if isinstance(obj, collections.Mapping) or isiter(obj):
+        # prevent traversal of recursive structures
+        if seen is None:
+            seen = set()
+        elif id(obj) in seen:
+            return '__RECURSIVE__'
+        seen.add(id(obj))
+
+    if hasattr(obj, '__xml__') and type(obj) is not type:
+        return obj.__xml__()
+    elif isinstance(obj, collections.Mapping):
+        if root is None:
+            root = ET.Element('Tree')
+        for name, v in obj.items():
+            value = asxml(v, root=root, seen=seen)
+            if isinstance(value, ET.Element):
+                root.append(value)
+                value.set('_name', name)
+            else:
+                root.set(name, value)
+        return root
+    elif isiter(obj):
+        return [asxml(o, seen) for o in obj]
+    else:
+        return str(obj)
 
 
 def prune_dict(d, predicate):
