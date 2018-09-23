@@ -13,6 +13,8 @@ from codecs import open
 
 from tatsu.buffering import Buffer
 from tatsu.util import ustr
+from tatsu import compile
+from tatsu.exceptions import FailedParse
 
 
 class BufferingTests(unittest.TestCase):
@@ -39,7 +41,7 @@ class BufferingTests(unittest.TestCase):
             else:
                 col += 1
 
-    def test_next_consisntency(self):
+    def test_next_consistency(self):
         while not self.buf.atend():
             bl, bc = self.buf.line_info()[1:3]
 #            print('li', bl, bc)
@@ -92,6 +94,29 @@ class BufferingTests(unittest.TestCase):
 
         b = Buffer('\n')
         self.assertEqual(2, b.linecount)
+
+    def test_line_info_bug_issue79(self):
+        grammar = '''\
+            start = ATTRIBUTE operator value ;
+
+            ATTRIBUTE = /[A-Za-z]+/;
+
+            operator = '='
+                    | '!='
+                    ;
+
+            value = NUMBER ;
+
+            NUMBER = /[0-9]+/ ;
+        '''
+
+        model = compile(grammar)
+        try:
+            model.parse("foo")
+        except FailedParse as e:
+            info = e.buf.line_info(e.pos)
+            self.assertEqual(info.text, "foo")
+            self.assertEqual(info.col, 3)
 
 
 def suite():
